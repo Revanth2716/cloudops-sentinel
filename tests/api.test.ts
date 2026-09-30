@@ -1,0 +1,3 @@
+import { describe, expect, it } from 'vitest';
+import { buildApp } from '../services/api/src/app';
+describe('API ingestion', () => { it('ingests and creates an incident', async () => { const app = buildApp(':memory:'); const response = await app.inject({ method:'POST', url:'/api/health-signals', payload:{ service:'checkout', timestamp:'2026-09-30T10:00:00Z', status:'unhealthy', responseTimeMs:500, error:'database unavailable' }}); expect(response.statusCode).toBe(201); expect(response.json().incident.service).toBe('checkout'); const incidents = await app.inject('/api/incidents'); expect(incidents.json()).toHaveLength(1); await app.close(); }); });

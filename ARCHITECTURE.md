@@ -77,3 +77,7 @@ Develop natively on Windows with one API process, one web process, and a lightwe
 ## Deferred decisions
 
 Authentication provider, exact libraries, cloud target, alert sources, migration tooling, and CI workflow details should be decided when first implemented. Record material decisions as short ADRs in `docs/decisions/`.
+
+## Implemented first vertical slice
+
+The API accepts validated health signals at `POST /api/health-signals`, stores them in local SQLite, and applies a deterministic rule: degraded/unhealthy status or response time at/above `SLOW_RESPONSE_MS` creates an incident. `GET /api/service-health` returns the latest signal per service and `GET /api/incidents` returns detected incidents. The React/Vite web app consumes only these API endpoints. AI, cloud integrations, remediation, and shell execution are intentionally not part of this slice.

@@ -1,0 +1,40 @@
+{
+  "name": "cloudops-sentinel",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "tsx services/api/src/server.ts",
+    "dev:web": "vite --config apps/web/vite.config.ts",
+    "build": "npm run build:web",
+    "build:web": "vite build --config apps/web/vite.config.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "workspaces": [
+    "apps/web",
+    "packages/contracts",
+    "packages/config",
+    "services/api"
+  ],
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^24.6.0",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "6.1.1",
+    "concurrently": "10.0.5",
+    "tsx": "4.23.15",
+    "typescript": "7.0.2",
+    "vite": "8.3.1",
+    "vitest": "5.0.2"
+  },
+  "dependencies": {
+    "@fastify/cors": "11.3.0",
+    "better-sqlite3": "13.0.3",
+    "fastify": "5.12.5",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "zod": "4.6.5"
+  }
+}
