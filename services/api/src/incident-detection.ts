@@ -5,7 +5,8 @@ export function detectIncident(signal: HealthSignal, id: string): Incident | nul
   const unhealthy = signal.status === 'unhealthy' || signal.status === 'degraded';
   const slow = signal.responseTimeMs >= config.slowResponseMs;
   if (!unhealthy && !slow) return null;
-  const severity = signal.status === 'unhealthy' ? config.unhealthyIncidentSeverity : slow ? 'medium' : 'low';
-  return { id, service: signal.service, severity, status: 'detected', detectedAt: signal.timestamp,
+  const condition = signal.status === 'unhealthy' ? 'unhealthy' : slow ? 'slow' : 'degraded';
+  const severity = condition === 'unhealthy' ? config.unhealthyIncidentSeverity : condition === 'slow' ? 'medium' : 'low';
+  return { id, service: signal.service, condition, severity, status: 'detected', detectedAt: signal.timestamp, resolvedAt: null, observationCount: 1, latestObservation: signal,
     summary: signal.error ? `${signal.status} signal: ${redactSensitive(signal.error)}` : `${signal.status} health signal (${signal.responseTimeMs}ms)` };
 }

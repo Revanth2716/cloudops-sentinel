@@ -3,7 +3,7 @@ import cors from '@fastify/cors';
 import { randomUUID } from 'node:crypto';
 import { HealthSignalSchema, redactSensitive } from '@cloudops/contracts';
 import { config } from '@cloudops/config';
-import { closeDb, createDb, listIncidents, listLatestServiceHealth, saveSignalAndIncident } from './db.js';
+import { closeDb, createDb, listIncidents, listLatestServiceHealth, saveSignalAndIncident, getIncident } from './db.js';
 import { detectIncident } from './incident-detection.js';
 
 export function buildApp(databasePath = config.databasePath) {
@@ -22,10 +22,11 @@ export function buildApp(databasePath = config.databasePath) {
     const parsed = HealthSignalSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid health signal', details: parsed.error.flatten() });
     const incident = detectIncident(parsed.data, randomUUID());
-    saveSignalAndIncident(db, parsed.data, incident);
-    return reply.code(201).send({ signalAccepted: true, incident });
+    const updatedIncident = saveSignalAndIncident(db, parsed.data, incident);
+    return reply.code(201).send({ signalAccepted: true, incident: updatedIncident });
   });
   app.get('/api/incidents', async () => listIncidents(db));
+  app.get('/api/incidents/:id', async (request, reply) => { const item = getIncident(db, (request.params as { id: string }).id); return item ? item : reply.code(404).send({ error: 'Incident not found' }); });
   app.get('/api/service-health', async () => listLatestServiceHealth(db));
   return app;
 }

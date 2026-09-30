@@ -10,7 +10,7 @@ export const HealthSignalSchema = z.object({
 export type HealthSignal = z.infer<typeof HealthSignalSchema>;
 export const IncidentSchema = z.object({
   id: z.string(), service: z.string(), severity: z.enum(['low', 'medium', 'high']),
-  status: z.enum(['detected', 'resolved']), detectedAt: z.string(), summary: z.string()
+  condition: z.enum(['degraded', 'unhealthy', 'slow']), status: z.enum(['detected', 'resolved']), detectedAt: z.string(), resolvedAt: z.string().nullable().optional(), observationCount: z.number().int().nonnegative(), latestObservation: z.any().nullable().optional(), summary: z.string()
 });
 export type Incident = z.infer<typeof IncidentSchema>;
 
