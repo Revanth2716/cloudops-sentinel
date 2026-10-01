@@ -8,6 +8,9 @@ export const HealthSignalSchema = z.object({
   error: z.string().trim().max(2000).optional()
 });
 export type HealthSignal = z.infer<typeof HealthSignalSchema>;
+export const SimulatorScenarioSchema = z.enum(['healthy','slow','database_failure','error_spike','recover']);
+export type SimulatorScenario = z.infer<typeof SimulatorScenarioSchema>;
+export const SimulatorRequestSchema = z.object({scenario: SimulatorScenarioSchema, service: z.string().trim().min(1).max(200).optional()}).strict();
 export const IncidentSchema = z.object({
   id: z.string(), service: z.string(), severity: z.enum(['low', 'medium', 'high']),
   condition: z.enum(['degraded', 'unhealthy', 'slow']), status: z.enum(['detected', 'resolved']), detectedAt: z.string(), resolvedAt: z.string().nullable().optional(), observationCount: z.number().int().nonnegative(), latestObservation: z.any().nullable().optional(), summary: z.string()

@@ -18,6 +18,8 @@ The API runs at `http://127.0.0.1:3001` and the dashboard at `http://127.0.0.1:5
 
 POST a signal to `/api/health-signals` with `service`, ISO `timestamp`, `status` (`healthy`, `degraded`, or `unhealthy`), `responseTimeMs`, and optional `error`. Incidents are available at `/api/incidents`.
 
+The local demo simulator accepts `POST /api/simulator/scenarios` with `{ "service": "payment-service", "scenario": "database_failure" }`. Scenarios are `healthy`, `slow`, `database_failure`, `error_spike`, and `recover`; controls are limited to the three demo services and never execute commands or remediation. Service details are available at `/api/service-health/:service`, and incident timelines at `/api/incidents/:id/timeline`.
+
 AI diagnosis is an optional advisory slice backed by local Ollama. Set `AI_ENABLED=true`, `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, and `OLLAMA_TIMEOUT_MS`; it is disabled by default and never downloads models or executes model output. Use `POST /api/incidents/:id/analyze` and `GET /api/incidents/:id/analyses`.
 
 Approval security: set `LOCAL_OPERATOR_TOKEN` and optionally `LOCAL_VIEWER_TOKEN` to random values of at least 16 characters in a local, git-ignored `.env`/process environment. The API accepts these as bearer tokens; the operator token is required to create, approve, or reject proposals, while the viewer token is read-only. This is a deliberately lightweight local-development authentication model, not an enterprise identity provider. The backend derives actor identity from the token and ignores client actor fields.

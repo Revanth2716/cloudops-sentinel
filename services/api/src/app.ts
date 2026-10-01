@@ -1,12 +1,13 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { randomUUID } from 'node:crypto';
-import { AIAnalysisResultSchema, HealthSignalSchema, CreateProposalSchema, DecisionSchema, AuthRequestSchema, IdSchema, RemediationParametersSchema, RemediationRequestSchema, redactSensitive } from '@cloudops/contracts';
+import { AIAnalysisResultSchema, HealthSignalSchema, CreateProposalSchema, DecisionSchema, AuthRequestSchema, IdSchema, RemediationParametersSchema, RemediationRequestSchema, SimulatorRequestSchema, redactSensitive } from '@cloudops/contracts';
 import { config } from '@cloudops/config';
-import { closeDb, createDb, listIncidents, listLatestServiceHealth, saveSignalAndIncident, getIncident, recentSignals, saveAnalysis, listAnalyses, listProposals, listAuditEvents, createProposal, decideProposal, saveRemediationAtomic } from './db.js';
+import { closeDb, createDb, listIncidents, listLatestServiceHealth, serviceHealth, incidentTimeline, saveSignalAndIncident, getIncident, recentSignals, saveAnalysis, listAnalyses, listProposals, listAuditEvents, createProposal, decideProposal, saveRemediationAtomic } from './db.js';
 import { detectIncident } from './incident-detection.js';
 import { OllamaAnalyzer, type AIAnalyzer, DIAGNOSIS_PROMPT_VERSION } from './ai.js';
 import { DryRunRemediationRunner } from './remediation.js';
+import { SIMULATED_SERVICES, signalsForScenario, type SimulatedService } from './simulator.js';
 
 export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyzer = new OllamaAnalyzer()) {
   const db = createDb(databasePath);
@@ -30,8 +31,18 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
     const updatedIncident = saveSignalAndIncident(db, parsed.data, incident);
     return reply.code(201).send({ signalAccepted: true, incident: updatedIncident });
   });
+  app.post('/api/simulator/scenarios', async (request, reply) => {
+    const parsed=SimulatorRequestSchema.safeParse(request.body);
+    if(!parsed.success)return reply.code(400).send({error:'Invalid simulator scenario',details:parsed.error.flatten()});
+    const service=(parsed.data.service??'payment-service');
+    if(!SIMULATED_SERVICES.includes(service as SimulatedService))return reply.code(400).send({error:'Unknown simulated service'});
+    const signals=signalsForScenario(parsed.data.scenario,service as SimulatedService,new Date().toISOString());
+    const accepted=signals.map(signal=>({signal,incident:saveSignalAndIncident(db,signal,detectIncident(signal,randomUUID()))}));
+    return reply.code(201).send({scenario:parsed.data.scenario,service,signals:accepted});
+  });
   app.get('/api/incidents', async () => listIncidents(db));
   app.get('/api/incidents/:id', async (request, reply) => { const id=IdSchema.safeParse((request.params as { id: string }).id);if(!id.success)return reply.code(400).send({error:'Invalid incident id'}); const item = getIncident(db, id.data); return item ? item : reply.code(404).send({ error: 'Incident not found' }); });
+  app.get('/api/incidents/:id/timeline', async (request, reply) => { const id=IdSchema.safeParse((request.params as { id: string }).id);if(!id.success)return reply.code(400).send({error:'Invalid incident id'});const timeline=incidentTimeline(db,id.data);return timeline?timeline:reply.code(404).send({error:'Incident not found'}); });
   app.post('/api/incidents/:id/analyze', async (request, reply) => { const id=(request.params as {id:string}).id; const incident=getIncident(db,id); if(!incident)return reply.code(404).send({error:'Incident not found'}); try{const untrusted=await analyzer.analyzeIncident({...incident,recentSignals:recentSignals(db,id)});const parsed=AIAnalysisResultSchema.safeParse(untrusted);if(!parsed.success)throw new Error('AI analyzer returned invalid analysis');const analysis={id:randomUUID(),incidentId:id,provider:analyzer.provider,model:analyzer.model,promptVersion:DIAGNOSIS_PROMPT_VERSION,result:parsed.data,createdAt:new Date().toISOString()};return reply.code(201).send(saveAnalysis(db,analysis));}catch(e){const message=e instanceof Error?redactSensitive(e.message):'AI analysis failed';request.log.warn({message},'AI analysis unavailable');return reply.code(503).send({error:message});} });
   app.get('/api/incidents/:id/analyses', async (request, reply) => { const id=(request.params as {id:string}).id;if(!getIncident(db,id))return reply.code(404).send({error:'Incident not found'});return listAnalyses(db,id); });
   app.get('/api/incidents/:id/proposals', async (request, reply) => { const id=(request.params as {id:string}).id;if(!getIncident(db,id))return reply.code(404).send({error:'Incident not found'});return listProposals(db,id); });
@@ -42,5 +53,6 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
   app.post('/api/proposals/:id/approve', async (request,reply)=>decide(request,reply,'approved'));
   app.post('/api/proposals/:id/reject', async (request,reply)=>decide(request,reply,'rejected'));
   app.get('/api/service-health', async () => listLatestServiceHealth(db));
+  app.get('/api/service-health/:service', async (request,reply) => {const service=(request.params as {service:string}).service;const result=serviceHealth(db,service);return result?result:reply.code(404).send({error:'Service not found'});});
   return app;
 }
