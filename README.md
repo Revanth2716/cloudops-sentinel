@@ -49,7 +49,7 @@ npm run dev:web
 
 Open [http://127.0.0.1:5173](http://127.0.0.1:5173). Paste the `LOCAL_OPERATOR_TOKEN` or `LOCAL_VIEWER_TOKEN` from `.env` into the Local token field and select **Authenticate**. The dashboard stores the token only in browser local storage. The API is at `http://127.0.0.1:3001` and readiness is `GET /health`.
 
-AI analysis is disabled by default (`AI_ENABLED=false`), so no Ollama installation is needed. If a compatible local provider is available later, its settings are `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, and `OLLAMA_TIMEOUT_MS`; model output remains advisory and is never executed.
+AI analysis is disabled by default (`AI_ENABLED=false`), so no Ollama installation is needed. For a safe deterministic local demo, explicitly set `AI_PROVIDER=fake` and `AI_ENABLED=true` in `.env`; the UI labels analyses as `fake / cloudops-demo-v1`. The fake provider never executes actions. If a compatible local provider is available later, use `AI_PROVIDER=ollama` with `OLLAMA_BASE_URL`, `OLLAMA_MODEL`, and `OLLAMA_TIMEOUT_MS`; model output remains advisory and is never executed.
 
 ## Demo workflow
 
