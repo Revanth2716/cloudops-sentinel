@@ -87,6 +87,10 @@ The API accepts validated health signals at `POST /api/health-signals`, stores s
 
 The local-only simulator is a pure bounded signal generator for `auth-service`, `payment-service`, and `notification-service`. `POST /api/simulator/scenarios` accepts only `healthy`, `slow`, `database_failure`, `error_spike`, and `recover`, then submits deterministic signals through the same health-signal ingestion and incident correlation path. It has no timers, command execution, cloud integrations, or remediation access. Service health reads include the latest signal, recent error count, average response time, current incident, and bounded recent history; incident timelines expose persisted signals, analysis, and proposal events only.
 
+## SRE metrics and operations dashboard
+
+Metrics are a bounded SQL read model over persisted signal and incident event timestamps. `/api/metrics/overview` and `/api/metrics/services/:service` support only the documented windows in `docs/metrics.md`; the frontend consumes these contracts without accessing persistence.
+
 ## Dry-run remediation boundary
 
 Dry-run execution is policy-gated and receives only an immutable approved object. Target identifiers reject secret-like values; audit metadata is typed and redacted at response boundaries. SQLite enforces one execution per approved proposal with an atomic conflict-safe insert; repeated and concurrent requests return the same logical execution. createDb() owns the remediation schema migration.

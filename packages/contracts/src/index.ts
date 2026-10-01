@@ -11,6 +11,12 @@ export type HealthSignal = z.infer<typeof HealthSignalSchema>;
 export const SimulatorScenarioSchema = z.enum(['healthy','slow','database_failure','error_spike','recover']);
 export type SimulatorScenario = z.infer<typeof SimulatorScenarioSchema>;
 export const SimulatorRequestSchema = z.object({scenario: SimulatorScenarioSchema, service: z.string().trim().min(1).max(200).optional()}).strict();
+export const MetricsWindowSchema = z.enum(['1h','6h','24h','7d']);
+export type MetricsWindow = z.infer<typeof MetricsWindowSchema>;
+export const MetricsQuerySchema = z.object({window: MetricsWindowSchema.default('24h')}).strict();
+export const MetricValueSchema = z.number().finite().min(0).nullable();
+export const MetricsOverviewSchema = z.object({window: MetricsWindowSchema,timeWindow:z.object({start:z.string(),end:z.string()}),availability:MetricValueSchema,errorRate:MetricValueSchema,averageLatencyMs:MetricValueSchema,incidentCount:z.number().int().min(0),openIncidents:z.number().int().min(0),resolvedIncidents:z.number().int().min(0),mttrMs:MetricValueSchema,signalCount:z.number().int().min(0),lastUpdated:z.string()}).strict();
+export const ServiceMetricsSchema = z.object({service:z.string(),window:MetricsWindowSchema,availability:MetricValueSchema,errorRate:MetricValueSchema,averageLatencyMs:MetricValueSchema,incidentCount:z.number().int().nonnegative(),openIncidentCount:z.number().int().nonnegative(),latestStatus:z.enum(['healthy','degraded','unhealthy']).nullable(),lastUpdated:z.string()}).strict();
 export const IncidentSchema = z.object({
   id: z.string(), service: z.string(), severity: z.enum(['low', 'medium', 'high']),
   condition: z.enum(['degraded', 'unhealthy', 'slow']), status: z.enum(['detected', 'resolved']), detectedAt: z.string(), resolvedAt: z.string().nullable().optional(), observationCount: z.number().int().nonnegative(), latestObservation: z.any().nullable().optional(), summary: z.string()

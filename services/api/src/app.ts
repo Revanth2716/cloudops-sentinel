@@ -1,9 +1,9 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
 import { randomUUID } from 'node:crypto';
-import { AIAnalysisResultSchema, HealthSignalSchema, CreateProposalSchema, DecisionSchema, AuthRequestSchema, IdSchema, RemediationParametersSchema, RemediationRequestSchema, SimulatorRequestSchema, redactSensitive } from '@cloudops/contracts';
+import { AIAnalysisResultSchema, HealthSignalSchema, CreateProposalSchema, DecisionSchema, AuthRequestSchema, IdSchema, RemediationParametersSchema, RemediationRequestSchema, SimulatorRequestSchema, MetricsWindowSchema, redactSensitive } from '@cloudops/contracts';
 import { config } from '@cloudops/config';
-import { closeDb, createDb, listIncidents, listLatestServiceHealth, serviceHealth, incidentTimeline, saveSignalAndIncident, getIncident, recentSignals, saveAnalysis, listAnalyses, listProposals, listAuditEvents, createProposal, decideProposal, saveRemediationAtomic } from './db.js';
+import { closeDb, createDb, listIncidents, listLatestServiceHealth, serviceHealth, incidentTimeline, saveSignalAndIncident, getIncident, recentSignals, saveAnalysis, listAnalyses, listProposals, listAuditEvents, createProposal, decideProposal, saveRemediationAtomic, metricsOverview, serviceMetrics } from './db.js';
 import { detectIncident } from './incident-detection.js';
 import { OllamaAnalyzer, type AIAnalyzer, DIAGNOSIS_PROMPT_VERSION } from './ai.js';
 import { DryRunRemediationRunner } from './remediation.js';
@@ -24,6 +24,8 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
   app.post('/api/auth/login',async(request,reply)=>{const parsed=AuthRequestSchema.safeParse(request.body);if(!parsed.success)return reply.code(400).send({error:'Invalid authentication request'});const user=parsed.data.token===config.localOperatorToken?{actor:'local-operator',role:'operator'}:parsed.data.token===config.localViewerToken?{actor:'local-viewer',role:'viewer'}:null;return user?user:reply.code(401).send({error:'Invalid local token'});});
   app.addHook('onClose', async () => closeDb(db));
   app.get('/health', async () => ({ ok: true }));
+  app.get('/api/metrics/overview', async (request,reply) => { const q=request.query as {window?:string};const window=MetricsWindowSchema.safeParse(q.window??'24h');if(!window.success)return reply.code(400).send({error:'Invalid metrics window'});return metricsOverview(db,window.data); });
+  app.get('/api/metrics/services/:service', async (request,reply) => { const service=(request.params as {service:string}).service.trim();if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(service))return reply.code(400).send({error:'Invalid service'});const q=request.query as {window?:string};const window=MetricsWindowSchema.safeParse(q.window??'24h');if(!window.success)return reply.code(400).send({error:'Invalid metrics window'});if(!db.prepare('SELECT 1 FROM health_signals WHERE service=? LIMIT 1').get(service))return reply.code(404).send({error:'Service not found'});return serviceMetrics(db,service,window.data); });
   app.post('/api/health-signals', async (request, reply) => {
     const parsed = HealthSignalSchema.safeParse(request.body);
     if (!parsed.success) return reply.code(400).send({ error: 'Invalid health signal', details: parsed.error.flatten() });
