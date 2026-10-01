@@ -17,6 +17,12 @@ export const AIAnalysisResultSchema = z.object({summary:z.string().trim().min(1)
 export type AIAnalysisResult = z.infer<typeof AIAnalysisResultSchema>;
 export const AIAnalysisSchema = z.object({id:z.string(),incidentId:z.string(),provider:z.string(),model:z.string(),promptVersion:z.string(),result:AIAnalysisResultSchema,createdAt:z.string()});
 export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
+export const ProposalActionTypeSchema = z.enum(['restart_service','scale_service','rollback_deployment']);
+export type ProposalActionType = z.infer<typeof ProposalActionTypeSchema>;
+export const ProposalStatusSchema = z.enum(['pending','approved','rejected']);
+export const ProposalSchema = z.object({id:z.string(),incidentId:z.string(),analysisId:z.string(),actionType:ProposalActionTypeSchema,description:z.string(),status:ProposalStatusSchema,createdAt:z.string(),decidedAt:z.string().nullable(),decidedBy:z.string().nullable()});
+export type Proposal = z.infer<typeof ProposalSchema>;
+export const CreateProposalSchema = z.object({analysisId:z.string().min(1),actionType:ProposalActionTypeSchema,description:z.string().trim().min(1).max(2000),actor:z.string().trim().min(1).max(200).optional()}).strict();
 
 const secretPattern = /(password|passwd|token|secret|api[_-]?key|authorization|connectionstring|connection[_-]?string)\s*[:=]\s*[^,;\s]+/gi;
 export function redactSensitive(value: string): string {
