@@ -22,9 +22,13 @@ export type ProposalActionType = z.infer<typeof ProposalActionTypeSchema>;
 export const ProposalStatusSchema = z.enum(['pending','approved','rejected']);
 export const ProposalSchema = z.object({id:z.string(),incidentId:z.string(),analysisId:z.string(),actionType:ProposalActionTypeSchema,description:z.string(),status:ProposalStatusSchema,createdAt:z.string(),decidedAt:z.string().nullable(),decidedBy:z.string().nullable()});
 export type Proposal = z.infer<typeof ProposalSchema>;
-export const CreateProposalSchema = z.object({analysisId:z.string().min(1),actionType:ProposalActionTypeSchema,description:z.string().trim().min(1).max(2000),actor:z.string().trim().min(1).max(200).optional()}).strict();
+export const IdSchema=z.string().uuid();
+export const CreateProposalSchema = z.object({analysisId:IdSchema,actionType:ProposalActionTypeSchema,description:z.string().trim().min(1).max(2000)}).strict();
+export const DecisionSchema=z.object({}).strict();
+export const AuthRequestSchema=z.object({token:z.string().trim().min(16).max(200)}).strict();
+export const AuditEventSchema=z.object({eventType:z.string().trim().min(1).max(100),proposalId:IdSchema,incidentId:IdSchema,createdAt:z.string().datetime({offset:true}),actor:z.string().trim().min(1).max(200),metadata:z.record(z.string(),z.unknown())}).strict();
 
 const secretPattern = /(password|passwd|token|secret|api[_-]?key|authorization|connectionstring|connection[_-]?string)\s*[:=]\s*[^,;\s]+/gi;
 export function redactSensitive(value: string): string {
-  return value.replace(secretPattern, '$1=[REDACTED]').replace(/(bearer\s+)[^\s]+/gi, '$1[REDACTED]').replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@]+):([^\s/@]+)@/gi, '$1[REDACTED]@[REDACTED]@');
+  return value.slice(0, 10000).replace(secretPattern, '$1=[REDACTED]').replace(/(bearer\s+)[^\s]+/gi, '$1[REDACTED]').replace(/([a-z][a-z0-9+.-]*:\/\/)([^\s/@]+):([^\s/@]+)@/gi, '$1[REDACTED]@[REDACTED]@').replace(/\b(?:sk|pk)_[A-Za-z0-9_-]{12,}\b/g,'[REDACTED]');
 }

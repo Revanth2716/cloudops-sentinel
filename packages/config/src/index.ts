@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomBytes } from 'node:crypto';
 
 const positiveNumber = z.coerce.number().finite().positive();
 const ConfigSchema = z.object({
@@ -6,7 +7,8 @@ const ConfigSchema = z.object({
   databasePath: z.string().trim().min(1),
   slowResponseMs: positiveNumber,
   unhealthyIncidentSeverity: z.enum(['low', 'medium', 'high']),
-  frontendOrigin: z.string().url(), aiEnabled: z.coerce.boolean(), ollamaBaseUrl: z.string().url(), ollamaModel: z.string().trim().min(1), ollamaTimeoutMs: positiveNumber
+  frontendOrigin: z.string().url(), aiEnabled: z.coerce.boolean(), ollamaBaseUrl: z.string().url(), ollamaModel: z.string().trim().min(1), ollamaTimeoutMs: positiveNumber,
+  localOperatorToken: z.string().min(16), localViewerToken: z.string().min(16)
 });
 
 const result = ConfigSchema.safeParse({
@@ -14,7 +16,8 @@ const result = ConfigSchema.safeParse({
   databasePath: process.env.DATABASE_PATH ?? './data/cloudops.db',
   slowResponseMs: process.env.SLOW_RESPONSE_MS ?? 1000,
   unhealthyIncidentSeverity: process.env.UNHEALTHY_INCIDENT_SEVERITY ?? 'high',
-  frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://127.0.0.1:5173', aiEnabled: process.env.AI_ENABLED ?? 'false', ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434', ollamaModel: process.env.OLLAMA_MODEL ?? 'llama3.2', ollamaTimeoutMs: process.env.OLLAMA_TIMEOUT_MS ?? 15000
+  frontendOrigin: process.env.FRONTEND_ORIGIN ?? 'http://127.0.0.1:5173', aiEnabled: process.env.AI_ENABLED ?? 'false', ollamaBaseUrl: process.env.OLLAMA_BASE_URL ?? 'http://127.0.0.1:11434', ollamaModel: process.env.OLLAMA_MODEL ?? 'llama3.2', ollamaTimeoutMs: process.env.OLLAMA_TIMEOUT_MS ?? 15000,
+  localOperatorToken: process.env.LOCAL_OPERATOR_TOKEN ?? randomBytes(24).toString('hex'), localViewerToken: process.env.LOCAL_VIEWER_TOKEN ?? randomBytes(24).toString('hex')
 });
 
 if (!result.success) {

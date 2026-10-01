@@ -54,6 +54,7 @@ Read-only diagnostics may be automatic when explicitly configured. Every state-c
 - Use least-privilege integration credentials and narrowly scoped remediation adapters.
 - Append audit events for ingestion, incident updates, AI metadata, approvals, execution attempts, and outcomes.
 - Add dependency and secret scanning to CI with the first implementation milestone.
+- Local approval authentication uses configured bearer tokens (`LOCAL_OPERATOR_TOKEN` and optional `LOCAL_VIEWER_TOKEN`); authorization is enforced server-side and actors are derived from the authenticated context. SQLite foreign keys, append-only audit triggers, terminal proposal guards, and transactional pending-state decisions protect the approval boundary. This remains a local-development model, not a production identity provider.
 
 ## Testing strategy
 
