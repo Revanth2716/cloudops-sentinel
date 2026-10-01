@@ -1,5 +1,7 @@
 # SRE metrics
 
+Event-time correlation attaches a matching late failure to a resolved incident when its timestamp is between that incident's detection and recovery timestamps. The observation is retained but never reopens the incident; resolution and latest-observation timestamps remain monotonic. A failure after recovery may start a new incident. Service latestStatus is window-scoped.
+
 Metrics use persisted `health_signals` and `incidents`, filtered by event time. Supported windows are `1h`, `6h`, `24h`, and `7d`; each interval is `[now-window, now]`.
 
 - Availability = healthy signals / all signals × 100. Degraded, unhealthy, and slow signals are non-available; no signals is `null`.

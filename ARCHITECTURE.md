@@ -91,6 +91,8 @@ The local-only simulator is a pure bounded signal generator for `auth-service`, 
 
 Metrics are a bounded SQL read model over persisted signal and incident event timestamps. `/api/metrics/overview` and `/api/metrics/services/:service` support only the documented windows in `docs/metrics.md`; the frontend consumes these contracts without accessing persistence.
 
+Incident correlation is event-time based: matching late observations are linked to resolved incidents within their detection/recovery interval without reopening them or moving timestamps backward. Events after the recovery boundary may create a new incident.
+
 ## Dry-run remediation boundary
 
 Dry-run execution is policy-gated and receives only an immutable approved object. Target identifiers reject secret-like values; audit metadata is typed and redacted at response boundaries. SQLite enforces one execution per approved proposal with an atomic conflict-safe insert; repeated and concurrent requests return the same logical execution. createDb() owns the remediation schema migration.

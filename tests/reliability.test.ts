@@ -6,6 +6,19 @@ const signal=(service:string,timestamp:string,status:'healthy'|'degraded'|'unhea
 const save=(db:any,s:any)=>saveSignalAndIncident(db,s,detectIncident(s,`${s.service}-${s.timestamp}-${s.status}-${s.responseTimeMs}`));
 
 describe('recovery and retention reliability',()=>{
+  it('attaches late failures to the historical incident without reopening it',()=>{
+    const db=createDb(':memory:');
+    save(db,signal('api','2026-09-30T10:00:00.000Z','unhealthy',50));
+    save(db,signal('api','2026-09-30T10:05:00.000Z','healthy',50));
+    const late=save(db,signal('api','2026-09-30T10:01:00.000Z','unhealthy',50,'late failure'));
+    const row:any=db.prepare('SELECT * FROM incidents').get();
+    expect(db.prepare('SELECT COUNT(*) n FROM incidents').get()).toEqual({n:1});
+    expect(row.status).toBe('resolved'); expect(row.resolved_at).toBe('2026-09-30T10:05:00.000Z');
+    expect(row.latest_observation_at).toBe('2026-09-30T10:05:00.000Z'); expect(row.observation_count).toBe(3);
+    expect(late?.status).toBe('resolved');
+    save(db,signal('api','2026-09-30T10:06:00.000Z','unhealthy',50));
+    expect(db.prepare('SELECT COUNT(*) n FROM incidents').get()).toEqual({n:2});
+  });
   it('isolates simultaneous unhealthy and slow incidents and ignores stale recovery',()=>{
     const db=createDb(':memory:');
     const unhealthy=save(db,signal('api','2026-09-30T10:00:00.000Z','unhealthy',100,'down'));
