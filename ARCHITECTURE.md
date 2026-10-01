@@ -82,3 +82,7 @@ Authentication provider, exact libraries, cloud target, alert sources, migration
 ## Implemented first vertical slice
 
 The API accepts validated health signals at `POST /api/health-signals`, stores every signal in local SQLite, and applies deterministic correlation: an unhealthy signal maps to `unhealthy`, a slow signal maps to `slow`, otherwise a degraded signal maps to `degraded`; only one detected incident may exist per service and condition. Matching signals attach to that incident and update its count and timestamp fields using signal timestamps, including out-of-order delivery. A healthy signal resolves all currently open incidents for the same service and is attached as the recovery observation; other services are unaffected. `GET /api/service-health`, `GET /api/incidents`, and `GET /api/incidents/:id` expose the result. The optional AI slice collects redacted evidence, calls local Ollama through a provider-neutral interface, validates strict structured output, and persists each analysis without overwriting prior results. AI remains advisory; model output is never executable.
+
+## Dry-run remediation boundary
+
+Dry-run execution is policy-gated and receives only an immutable approved object. Target identifiers reject secret-like values; audit metadata is typed and redacted at response boundaries. SQLite enforces one execution per approved proposal with an atomic conflict-safe insert; repeated and concurrent requests return the same logical execution. createDb() owns the remediation schema migration.

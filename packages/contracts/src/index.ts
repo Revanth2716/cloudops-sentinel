@@ -19,17 +19,19 @@ export const AIAnalysisSchema = z.object({id:z.string(),incidentId:z.string(),pr
 export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
 export const ProposalActionTypeSchema = z.enum(['restart_service','scale_service','rollback_deployment']);
 export type ProposalActionType = z.infer<typeof ProposalActionTypeSchema>;
-const ServiceName = z.string().trim().min(1).max(200);
+const SafeTarget = z.string().trim().min(1).max(200).regex(/^[A-Za-z0-9][A-Za-z0-9._/-]*$/, 'Target contains unsupported characters').refine((v) => !/(password|passwd|token|secret|api[_-]?key|bearer|connection|string|authorization)\s*[:=]/i.test(v), 'Secret-like target is not allowed').refine((v) => !/^[A-Za-z][A-Za-z0-9+.-]*:\/\/|^[A-Za-z0-9+/=_-]{20,}\.[A-Za-z0-9+/=_-]{10,}/.test(v), 'Credential or connection string is not allowed');
+const ServiceName = SafeTarget;
+const DeploymentVersion = SafeTarget;
 export const RemediationParametersSchema = z.discriminatedUnion('actionType', [
   z.object({ actionType: z.literal('restart_service'), service: ServiceName }).strict(),
   z.object({ actionType: z.literal('scale_service'), service: ServiceName, desiredReplicas: z.number().int().min(0).max(1000) }).strict(),
-  z.object({ actionType: z.literal('rollback_deployment'), service: ServiceName, deploymentVersion: z.string().trim().min(1).max(200) }).strict()
+  z.object({ actionType: z.literal('rollback_deployment'), service: ServiceName, deploymentVersion: DeploymentVersion }).strict()
 ]);
 export type RemediationParameters = z.infer<typeof RemediationParametersSchema>;
 export const ExecutionModeSchema = z.literal('dry_run');
 export const RemediationRequestSchema = z.object({proposalId:z.string().uuid(),incidentId:z.string().uuid(),actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema,mode:ExecutionModeSchema}).strict();
 export type RemediationRequest = z.infer<typeof RemediationRequestSchema>;
-export const RemediationExecutionSchema = z.object({id:z.string().uuid(),proposalId:z.string().uuid(),incidentId:z.string().uuid(),actionType:ProposalActionTypeSchema,mode:ExecutionModeSchema,status:z.enum(['simulated','failed']),executed:z.literal(false),message:z.string().trim().min(1).max(1000),createdAt:z.string()}).strict();
+export const RemediationExecutionSchema = z.object({id:z.string().uuid(),proposalId:z.string().uuid(),incidentId:z.string().uuid(),actionType:ProposalActionTypeSchema,mode:ExecutionModeSchema,status:z.enum(['simulated','failed']),executed:z.literal(false),message:z.string().trim().min(1).max(1000).refine(v=>!/(password|token|secret|api[_-]?key|bearer)\s*[:=]/i.test(v)),createdAt:z.string()}).strict();
 export type RemediationExecution = z.infer<typeof RemediationExecutionSchema>;
 export const ProposalStatusSchema = z.enum(['pending','approved','rejected']);
 export const ProposalSchema = z.object({id:z.string(),incidentId:z.string(),analysisId:z.string(),actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema.nullable().optional(),description:z.string(),status:ProposalStatusSchema,createdAt:z.string(),decidedAt:z.string().nullable(),decidedBy:z.string().nullable()});
@@ -38,7 +40,9 @@ export const IdSchema=z.string().uuid();
 export const CreateProposalSchema = z.object({analysisId:IdSchema,actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema.optional(),description:z.string().trim().min(1).max(2000)}).strict().superRefine((value,ctx)=>{if(value.parameters && value.parameters.actionType!==value.actionType)ctx.addIssue({code:'custom',message:'Parameter action type must match proposal action type',path:['parameters','actionType']})});
 export const DecisionSchema=z.object({}).strict();
 export const AuthRequestSchema=z.object({token:z.string().trim().min(16).max(200)}).strict();
-export const AuditEventSchema=z.object({eventType:z.string().trim().min(1).max(100),proposalId:IdSchema,incidentId:IdSchema,createdAt:z.string().datetime({offset:true}),actor:z.string().trim().min(1).max(200),metadata:z.record(z.string(),z.unknown())}).strict();
+export const AuditMetadataSchema=z.discriminatedUnion('kind', [z.object({kind:z.literal('proposal_created'),actionType:ProposalActionTypeSchema,analysisId:IdSchema}).strict(),z.object({kind:z.literal('proposal_decided'),previousStatus:ProposalStatusSchema}).strict(),z.object({kind:z.literal('remediation_requested'),mode:ExecutionModeSchema,actionType:ProposalActionTypeSchema}).strict(),z.object({kind:z.literal('remediation_simulated'),mode:ExecutionModeSchema,executed:z.literal(false)}).strict()]);
+export type AuditMetadata=z.infer<typeof AuditMetadataSchema>;
+export const AuditEventSchema=z.object({eventType:z.string().trim().min(1).max(100),proposalId:IdSchema,incidentId:IdSchema,createdAt:z.string().datetime({offset:true}),actor:z.string().trim().min(1).max(200),metadata:z.union([AuditMetadataSchema,z.object({actionType:ProposalActionTypeSchema}).strict(),z.object({previousStatus:ProposalStatusSchema}).strict()])}).strict();
 
 const secretPattern = /(password|passwd|token|secret|api[_-]?key|authorization|connectionstring|connection[_-]?string)\s*[:=]\s*[^,;\s]+/gi;
 export function redactSensitive(value: string): string {
