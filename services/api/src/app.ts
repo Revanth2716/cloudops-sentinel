@@ -32,6 +32,7 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
     return reply.code(201).send({ signalAccepted: true, incident: updatedIncident });
   });
   app.post('/api/simulator/scenarios', async (request, reply) => {
+    const user=operator(request,reply);if(!user)return;
     const parsed=SimulatorRequestSchema.safeParse(request.body);
     if(!parsed.success)return reply.code(400).send({error:'Invalid simulator scenario',details:parsed.error.flatten()});
     const service=(parsed.data.service??'payment-service');
@@ -42,7 +43,7 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
   });
   app.get('/api/incidents', async () => listIncidents(db));
   app.get('/api/incidents/:id', async (request, reply) => { const id=IdSchema.safeParse((request.params as { id: string }).id);if(!id.success)return reply.code(400).send({error:'Invalid incident id'}); const item = getIncident(db, id.data); return item ? item : reply.code(404).send({ error: 'Incident not found' }); });
-  app.get('/api/incidents/:id/timeline', async (request, reply) => { const id=IdSchema.safeParse((request.params as { id: string }).id);if(!id.success)return reply.code(400).send({error:'Invalid incident id'});const timeline=incidentTimeline(db,id.data);return timeline?timeline:reply.code(404).send({error:'Incident not found'}); });
+  app.get('/api/incidents/:id/timeline', async (request, reply) => { const id=IdSchema.safeParse((request.params as { id: string }).id);if(!id.success)return reply.code(400).send({error:'Invalid incident id'});const q=request.query as {offset?:string;limit?:string};const offset=Math.max(0,Number(q.offset??0));const limit=Math.min(200,Math.max(1,Number(q.limit??100)));if(!Number.isInteger(offset)||!Number.isInteger(limit))return reply.code(400).send({error:'Invalid timeline pagination'});const timeline=incidentTimeline(db,id.data,offset,limit);return timeline?timeline:reply.code(404).send({error:'Incident not found'}); });
   app.post('/api/incidents/:id/analyze', async (request, reply) => { const id=(request.params as {id:string}).id; const incident=getIncident(db,id); if(!incident)return reply.code(404).send({error:'Incident not found'}); try{const untrusted=await analyzer.analyzeIncident({...incident,recentSignals:recentSignals(db,id)});const parsed=AIAnalysisResultSchema.safeParse(untrusted);if(!parsed.success)throw new Error('AI analyzer returned invalid analysis');const analysis={id:randomUUID(),incidentId:id,provider:analyzer.provider,model:analyzer.model,promptVersion:DIAGNOSIS_PROMPT_VERSION,result:parsed.data,createdAt:new Date().toISOString()};return reply.code(201).send(saveAnalysis(db,analysis));}catch(e){const message=e instanceof Error?redactSensitive(e.message):'AI analysis failed';request.log.warn({message},'AI analysis unavailable');return reply.code(503).send({error:message});} });
   app.get('/api/incidents/:id/analyses', async (request, reply) => { const id=(request.params as {id:string}).id;if(!getIncident(db,id))return reply.code(404).send({error:'Incident not found'});return listAnalyses(db,id); });
   app.get('/api/incidents/:id/proposals', async (request, reply) => { const id=(request.params as {id:string}).id;if(!getIncident(db,id))return reply.code(404).send({error:'Incident not found'});return listProposals(db,id); });
@@ -53,6 +54,6 @@ export function buildApp(databasePath = config.databasePath, analyzer: AIAnalyze
   app.post('/api/proposals/:id/approve', async (request,reply)=>decide(request,reply,'approved'));
   app.post('/api/proposals/:id/reject', async (request,reply)=>decide(request,reply,'rejected'));
   app.get('/api/service-health', async () => listLatestServiceHealth(db));
-  app.get('/api/service-health/:service', async (request,reply) => {const service=(request.params as {service:string}).service;const result=serviceHealth(db,service);return result?result:reply.code(404).send({error:'Service not found'});});
+  app.get('/api/service-health/:service', async (request,reply) => {const service=(request.params as {service:string}).service.trim();if(!/^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/.test(service))return reply.code(400).send({error:'Invalid service'});const result=serviceHealth(db,service);return result?result:reply.code(404).send({error:'Service not found'});});
   return app;
 }

@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { signalsForScenario, SIMULATED_SERVICES } from '../services/api/src/simulator';
 import { buildApp } from '../services/api/src/app';
+import { config } from '@cloudops/config';
+import { readFileSync } from 'node:fs';
 
 describe('local simulator', () => {
+  it('has no execution or mutation capability',()=>{const source=readFileSync(new URL('../services/api/src/simulator.ts',import.meta.url),'utf8');expect(source).not.toMatch(/child_process|exec\(|spawn\(|writeFile|unlink|docker|aws-sdk|remediation/i)});
   it.each([
     ['healthy','healthy'],['slow','degraded'],['database_failure','unhealthy'],['error_spike','unhealthy'],['recover','healthy']
   ] as const)('%s is deterministic', (scenario,status) => {
@@ -12,7 +15,7 @@ describe('local simulator', () => {
   it('uses only the predefined services',()=>expect(SIMULATED_SERVICES).toEqual(['auth-service','payment-service','notification-service']));
   it('ingests bounded scenario signals and correlates failures/recovery', async()=>{
     const app=buildApp(':memory:');
-    const run=(scenario:string)=>app.inject({method:'POST',url:'/api/simulator/scenarios',payload:{scenario,service:'payment-service'}});
+    const run=(scenario:string)=>app.inject({method:'POST',url:'/api/simulator/scenarios',headers:{authorization:`Bearer ${config.localOperatorToken}`},payload:{scenario,service:'payment-service'}});
     expect((await run('healthy')).statusCode).toBe(201);
     const failure=await run('database_failure'); expect(failure.json().signals[0].incident.status).toBe('detected');
     const repeated=await run('database_failure'); expect(repeated.json().signals[0].incident.id).toBe(failure.json().signals[0].incident.id);
@@ -21,5 +24,5 @@ describe('local simulator', () => {
     expect((await app.inject('/api/incidents')).json().filter((x:any)=>x.service==='payment-service')).toHaveLength(1);
     await app.close();
   });
-  it('rejects arbitrary scenarios and services',async()=>{const app=buildApp(':memory:');expect((await app.inject({method:'POST',url:'/api/simulator/scenarios',payload:{scenario:'shell',service:'payment-service'}})).statusCode).toBe(400);expect((await app.inject({method:'POST',url:'/api/simulator/scenarios',payload:{scenario:'healthy',service:'shell'}})).statusCode).toBe(400);await app.close()});
+  it('rejects arbitrary scenarios and services',async()=>{const app=buildApp(':memory:');const headers={authorization:`Bearer ${config.localOperatorToken}`};expect((await app.inject({method:'POST',url:'/api/simulator/scenarios',headers,payload:{scenario:'shell',service:'payment-service'}})).statusCode).toBe(400);expect((await app.inject({method:'POST',url:'/api/simulator/scenarios',headers,payload:{scenario:'healthy',service:'shell'}})).statusCode).toBe(400);await app.close()});
 });
