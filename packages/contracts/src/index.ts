@@ -19,11 +19,23 @@ export const AIAnalysisSchema = z.object({id:z.string(),incidentId:z.string(),pr
 export type AIAnalysis = z.infer<typeof AIAnalysisSchema>;
 export const ProposalActionTypeSchema = z.enum(['restart_service','scale_service','rollback_deployment']);
 export type ProposalActionType = z.infer<typeof ProposalActionTypeSchema>;
+const ServiceName = z.string().trim().min(1).max(200);
+export const RemediationParametersSchema = z.discriminatedUnion('actionType', [
+  z.object({ actionType: z.literal('restart_service'), service: ServiceName }).strict(),
+  z.object({ actionType: z.literal('scale_service'), service: ServiceName, desiredReplicas: z.number().int().min(0).max(1000) }).strict(),
+  z.object({ actionType: z.literal('rollback_deployment'), service: ServiceName, deploymentVersion: z.string().trim().min(1).max(200) }).strict()
+]);
+export type RemediationParameters = z.infer<typeof RemediationParametersSchema>;
+export const ExecutionModeSchema = z.literal('dry_run');
+export const RemediationRequestSchema = z.object({proposalId:z.string().uuid(),incidentId:z.string().uuid(),actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema,mode:ExecutionModeSchema}).strict();
+export type RemediationRequest = z.infer<typeof RemediationRequestSchema>;
+export const RemediationExecutionSchema = z.object({id:z.string().uuid(),proposalId:z.string().uuid(),incidentId:z.string().uuid(),actionType:ProposalActionTypeSchema,mode:ExecutionModeSchema,status:z.enum(['simulated','failed']),executed:z.literal(false),message:z.string().trim().min(1).max(1000),createdAt:z.string()}).strict();
+export type RemediationExecution = z.infer<typeof RemediationExecutionSchema>;
 export const ProposalStatusSchema = z.enum(['pending','approved','rejected']);
-export const ProposalSchema = z.object({id:z.string(),incidentId:z.string(),analysisId:z.string(),actionType:ProposalActionTypeSchema,description:z.string(),status:ProposalStatusSchema,createdAt:z.string(),decidedAt:z.string().nullable(),decidedBy:z.string().nullable()});
+export const ProposalSchema = z.object({id:z.string(),incidentId:z.string(),analysisId:z.string(),actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema.nullable().optional(),description:z.string(),status:ProposalStatusSchema,createdAt:z.string(),decidedAt:z.string().nullable(),decidedBy:z.string().nullable()});
 export type Proposal = z.infer<typeof ProposalSchema>;
 export const IdSchema=z.string().uuid();
-export const CreateProposalSchema = z.object({analysisId:IdSchema,actionType:ProposalActionTypeSchema,description:z.string().trim().min(1).max(2000)}).strict();
+export const CreateProposalSchema = z.object({analysisId:IdSchema,actionType:ProposalActionTypeSchema,parameters:RemediationParametersSchema.optional(),description:z.string().trim().min(1).max(2000)}).strict().superRefine((value,ctx)=>{if(value.parameters && value.parameters.actionType!==value.actionType)ctx.addIssue({code:'custom',message:'Parameter action type must match proposal action type',path:['parameters','actionType']})});
 export const DecisionSchema=z.object({}).strict();
 export const AuthRequestSchema=z.object({token:z.string().trim().min(16).max(200)}).strict();
 export const AuditEventSchema=z.object({eventType:z.string().trim().min(1).max(100),proposalId:IdSchema,incidentId:IdSchema,createdAt:z.string().datetime({offset:true}),actor:z.string().trim().min(1).max(200),metadata:z.record(z.string(),z.unknown())}).strict();
